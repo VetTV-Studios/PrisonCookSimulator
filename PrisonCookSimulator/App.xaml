@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="PrisonCookSimulator.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="Ink" Color="#0E1216"/>
+            <SolidColorBrush x:Key="Steel" Color="#1C262E"/>
+            <SolidColorBrush x:Key="Amber" Color="#E8A838"/>
+            <SolidColorBrush x:Key="Cream" Color="#EDE6D6"/>
+            <SolidColorBrush x:Key="Moss" Color="#7FA18B"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
