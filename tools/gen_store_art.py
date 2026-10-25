@@ -27,14 +27,16 @@ def title(im,box):
     d.text((x0+(bw-w2)//2,top+s+int(s*0.12)),'SIMULATOR',font=f2,fill=ORANGE,stroke_width=max(2,sw//2+1),stroke_fill=SHADOW)
     return im
 def save(im,name): im.convert('RGB').save(f'{D}/{name}',optimize=True); print(name,im.size)
-key,poster,hero=src('key_art.jpg'),src('poster_art.jpg'),src('hero_art.jpg')
+# v2: 4x Real-ESRGAN masters (tools/upscale_esrgan.py) -> every output is a DOWNscale of a >=2160 master.
+key,poster,hero=src('x4/key_art_x4.jpg'),src('x4/poster_v2_x4.jpg'),src('x4/hero_v2_x4.jpg')
 # itch cover 630x500, title inside central 560x440 safe area (top band)
-im=fit(key,630,500,0.35); save(title(im,(55,40,575,190)),'itch_cover_630x500.png')
+# title + cook head both inside central 560x440 (x 35-595, y 30-470)
+im=fit(key,630,500,0.35); save(title(im,(60,40,570,175)),'itch_cover_630x500.png')
 # Store box 1:1
 im=fit(key,2160,2160); save(title(im,(260,140,1900,700)),'store_box_2160x2160.png')
 save(Image.open(f'{D}/store_box_2160x2160.png').resize((1080,1080),Image.LANCZOS),'store_box_1080x1080.png')
 # poster 2:3, title in top
-im=fit(poster,1440,2160,0.0); save(title(im,(120,90,1320,560)),'store_poster_1440x2160.png')
+im=fit(poster,1440,2160,1.0); save(title(im,(120,60,1320,420)),'store_poster_1440x2160.png')
 save(Image.open(f'{D}/store_poster_1440x2160.png').resize((720,1080),Image.LANCZOS),'store_poster_720x1080.png')
 # hero 1920x1080 no title
 save(fit(hero,1920,1080),'store_hero_1920x1080.png')
