@@ -1,3 +1,4 @@
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -18,6 +19,9 @@ public sealed partial class MainWindow : Window
     private double _hygieneAcc;
     private bool _paused;
     private SaveData _save;
+    private readonly AudioService _audio = new();
+    private bool _settingsReady;
+    private string? _ticketIconFor;
 
     public MainWindow()
     {
@@ -38,7 +42,23 @@ public sealed partial class MainWindow : Window
         _save = SaveStore.Load();
         _s.BestRush = _save.BestRush;
         RefreshMenu();
+        Closed += (_, _) => _audio.Dispose();
+        foreach (var b in new[] { StPrep, StRange, StFryer, StSteam, StWindow })
+        {
+            if (b.Tag is string tag && Enum.TryParse<Station>(tag, out var st))
+                b.Content = Art.Labeled(Art.ForStation(st), $"{(int)st + 1}  {st.ToString().ToUpperInvariant()}", 56, Orientation.Vertical);
+        }
+        LoadSettingsUi();
+        ApplySettings();
+        _audio.PlayMusic("music_menu");
+        // Plain strings in the ComboBox (UIElement items + selection box can fight over the parent); icon shown beside it.
         BuyBox.ItemsSource = KitchenBook.Ingredients.Select(i => i.Name).ToList();
+        BuyBox.SelectionChanged += (_, _) =>
+        {
+            var idx = BuyBox.SelectedIndex;
+            CrateIcon.Source = idx < 0 ? null
+                : new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(Art.FileUri(Art.ForIngredient(KitchenBook.Ingredients[idx])));
+        };
         if (BuyBox.Items.Count > 0) BuyBox.SelectedIndex = 0;
         ShopList.ItemsSource = KitchenBook.Shop.Select(u => new ShopRow(u.Id, $"{u.Name}  ·  ${u.Cost}")).ToList();
     }
@@ -84,7 +104,10 @@ public sealed partial class MainWindow : Window
         LinePanel.Visibility = Visibility.Collapsed;
         ReportPanel.Visibility = Visibility.Collapsed;
         EndPanel.Visibility = Visibility.Collapsed;
+        SettingsPanel.Visibility = Visibility.Collapsed;
         panel.Visibility = Visibility.Visible;
+        _audio.PlayMusic(panel == LinePanel ? "music_line" : "music_menu");
+        _audio.Sfx("click");
     }
 
     private void OnMenu(object sender, RoutedEventArgs e)
@@ -97,6 +120,66 @@ public sealed partial class MainWindow : Window
     }
 
     private void OnHelp(object sender, RoutedEventArgs e) => Show(HelpPanel);
+
+    // ---------- Settings ----------
+    private void OnSettings(object sender, RoutedEventArgs e)
+    {
+        LoadSettingsUi();
+        Show(SettingsPanel);
+    }
+
+    private void LoadSettingsUi()
+    {
+        _settingsReady = false;
+        var st = _save.Settings;
+        MusicSlider.Value = Math.Round(st.MusicVolume * 100);
+        SfxSlider.Value = Math.Round(st.SfxVolume * 100);
+        MuteBox.IsChecked = st.Muted;
+        FullscreenBox.IsChecked = st.Fullscreen;
+        DifficultyBox.SelectedIndex = (int)st.Difficulty;
+        _settingsReady = true;
+    }
+
+    private void OnSettingChanged(object sender, RoutedEventArgs e) => ReadSettingsUi();
+
+    private void OnSliderChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) => ReadSettingsUi();
+
+    private void OnDifficultyChanged(object sender, SelectionChangedEventArgs e) => ReadSettingsUi();
+
+    private void ReadSettingsUi()
+    {
+        if (!_settingsReady) return;
+        var st = _save.Settings;
+        st.MusicVolume = MusicSlider.Value / 100.0;
+        st.SfxVolume = SfxSlider.Value / 100.0;
+        st.Muted = MuteBox.IsChecked == true;
+        st.Fullscreen = FullscreenBox.IsChecked == true;
+        if (DifficultyBox.SelectedIndex >= 0) st.Difficulty = (Difficulty)DifficultyBox.SelectedIndex;
+        ApplySettings();
+    }
+
+    private void ApplySettings()
+    {
+        var st = _save.Settings;
+        _audio.Apply(st.MusicVolume, st.SfxVolume, st.Muted);
+        try
+        {
+            var want = st.Fullscreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped;
+            if (AppWindow.Presenter.Kind != want) AppWindow.SetPresenter(want);
+        }
+        catch
+        {
+        }
+    }
+
+    private void OnSettingsBack(object sender, RoutedEventArgs e)
+    {
+        ReadSettingsUi();
+        SaveStore.Save(_save);
+        _audio.Sfx("station_hit");
+        RefreshMenu();
+        Show(MenuPanel);
+    }
 
     private void OnContract(object sender, RoutedEventArgs e)
     {
@@ -172,12 +255,13 @@ public sealed partial class MainWindow : Window
         StatHyg.Text = $"Hygiene {_s.Hygiene}";
         StatMorale.Text = $"Morale {_s.Morale}";
         StatFavor.Text = $"Warden {_s.Favor}";
-        MenuABtn.Content = _s.MenuA is null ? "Menu A" : _s.MenuA.Name;
-        MenuBBtn.Content = _s.MenuB is null ? "Menu B" : _s.MenuB.Name;
+        MenuABtn.Content = _s.MenuA is null ? "Menu A" : Art.Labeled(Art.ForRecipe(_s.MenuA), _s.MenuA.Name, 40);
+        MenuBBtn.Content = _s.MenuB is null ? "Menu B" : Art.Labeled(Art.ForRecipe(_s.MenuB), _s.MenuB.Name, 40);
         CrewList.ItemsSource = _s.Crew.Select(c =>
             $"{c.Name}  ·  {c.Best} {c.Skill}  ·  {(c.Present ? c.Note : "PULLED")}").ToList();
         PantryList.ItemsSource = KitchenBook.Ingredients
-            .Select(i => $"{i.Name,-22}  {_s.Pantry.GetValueOrDefault(i.Id),2}   ${KitchenBook.BuyCost(_s, i, 1)}/ea")
+            .Select(i => Art.Labeled(Art.ForIngredient(i),
+                $"{i.Name}  ×{_s.Pantry.GetValueOrDefault(i.Id)}   ${KitchenBook.BuyCost(_s, i, 1)}/ea", 24))
             .ToList();
         ShopList.ItemsSource = KitchenBook.Shop.Select(u =>
             new ShopRow(u.Id, _s.Has(u.Id) ? $"{u.Name}  ·  owned" : $"{u.Name}  ·  ${u.Cost}")).ToList();
@@ -215,6 +299,7 @@ public sealed partial class MainWindow : Window
         _s.Pantry[item.Id] = _s.Pantry.GetValueOrDefault(item.Id) + 1;
         _s.Ledger.Add($"Bought {item.Name} (−${cost})");
         _s.Log = $"Crate in: {item.Name}.";
+        _audio.Sfx("purchase");
         PaintHub();
     }
 
@@ -233,6 +318,7 @@ public sealed partial class MainWindow : Window
         if (up.Id == "crew")
             _s.Crew.Add(KitchenBook.RandomHire(_rng));
         _s.Log = $"Installed {up.Name}.";
+        _audio.Sfx("purchase");
         ShopHint.Text = up.Blurb;
         PaintHub();
     }
@@ -248,6 +334,7 @@ public sealed partial class MainWindow : Window
         _s.Budget -= 25;
         _s.Hygiene = Math.Min(100, _s.Hygiene + 14);
         _s.Log = "Floor shining. Inspector would still find a corner.";
+        _audio.Sfx("purchase");
         PaintHub();
     }
 
@@ -345,7 +432,11 @@ public sealed partial class MainWindow : Window
     private void OnTick(object sender, object e)
     {
         if (!_lineLive || _paused || _live is null) return;
-        _live.TimeLeft -= 0.05;
+        var before = _live.TimeLeft;
+        _live.TimeLeft -= 0.05 * _save.Settings.ClockSpeed;
+        // Warning tick every half second during the last 1.5 s of a step.
+        if (_live.TimeLeft < 1.5 && _live.TimeLeft > 0 && Math.Floor(before * 2) != Math.Floor(_live.TimeLeft * 2))
+            _audio.Sfx("tick");
         _hygieneAcc += _s.Has("drains") ? 0.012 : 0.02;
         if (_hygieneAcc >= 1)
         {
@@ -425,6 +516,7 @@ public sealed partial class MainWindow : Window
         if (st == Station.Fryer && _s.Has("fry")) hit += 3;
         _live.Quality = Math.Clamp(_live.Quality + hit, 5, 100);
         _live.Step++;
+        _audio.Sfx("station_hit");
         if (_live.Step >= _live.Recipe.Steps.Length)
         {
             Plate(_live);
@@ -457,6 +549,7 @@ public sealed partial class MainWindow : Window
     private void Ruin(string why)
     {
         _s.Ruined++;
+        _audio.Sfx("ruined");
         if (_live is not null) LineToast.Text = why + $"  ({_live.Recipe.Name})";
         if (_s.Ruined >= 3)
         {
@@ -501,6 +594,8 @@ public sealed partial class MainWindow : Window
         if (_live is null)
         {
             TicketName.Text = "No ticket";
+            TicketIcon.Source = null;
+            _ticketIconFor = null;
             TicketTag.Text = "";
             TicketSteps.Text = "";
             TicketBar.Value = 0;
@@ -508,6 +603,11 @@ public sealed partial class MainWindow : Window
             return;
         }
         TicketName.Text = _live.Recipe.Name;
+        if (_ticketIconFor != _live.Recipe.Id)
+        {
+            _ticketIconFor = _live.Recipe.Id;
+            TicketIcon.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(Art.FileUri(Art.ForRecipe(_live.Recipe)));
+        }
         TicketTag.Text = $"{_live.Recipe.Tag}  ·  quality {_live.Quality}";
         var marks = _live.Recipe.Steps.Select((st, i) => i < _live.Step ? $"[{st}]" : i == _live.Step ? $"» {st} «" : st.ToString());
         TicketSteps.Text = string.Join("   →   ", marks);
@@ -523,6 +623,7 @@ public sealed partial class MainWindow : Window
         _timer.Stop();
         _lineLive = false;
         SetPaused(false);
+        _audio.Sfx("service_end");
         if (_s.Mode == RunMode.Rush)
         {
             ShowRushEnd(bailed: collapse && _s.Plated == 0);

@@ -35,6 +35,8 @@ If packaging identity complains, set this in the `.csproj` for unpackaged debug:
 
 Keys **1–5** hit Prep, Range, Fryer, Steam, Window. **P** or **Esc** pauses and resumes the line.
 
+**Settings** (main menu): music volume, SFX volume, mute, difficulty (Easy 0.75× / Normal / Hard 1.3× ticket clock), fullscreen. Stored in save.json.
+
 Save file: `%LocalAppData%\VetTV\PrisonCookSimulator\save.json` (Rush best score and contract progress). Under MSIX, Windows redirects this path into the package's LocalCache folder.
 
 ## itch.io build (unpackaged, self-contained)

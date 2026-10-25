@@ -56,6 +56,7 @@
                 <Button Style="{StaticResource Gold}" Content="Kitchen contract  ·  8 weeks" Click="OnContract"/>
                 <Button Style="{StaticResource Gold}" Content="Rush line  ·  arcade service" Click="OnRush"/>
                 <Button Style="{StaticResource Ghost}" Content="How the line works" Click="OnHelp"/>
+                <Button Style="{StaticResource Ghost}" Content="Settings" Click="OnSettings"/>
                 <TextBlock x:Name="MenuBest" Foreground="#7FA18B" FontSize="13" HorizontalAlignment="Center" Margin="0,12,0,0"/>
             </StackPanel>
         </Grid>
@@ -109,7 +110,14 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
             <Border Grid.Column="1" Background="#141A1F" Padding="18" BorderBrush="#2E3A44" BorderThickness="1,0,0,0">
                 <StackPanel>
                     <TextBlock Text="VENDOR + SHOP" Foreground="#E8A838" FontSize="16" Margin="0,0,0,10"/>
-                    <ComboBox x:Name="BuyBox" HorizontalAlignment="Stretch"/>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="48"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Image x:Name="CrateIcon" Width="48" Height="48"/>
+                        <ComboBox x:Name="BuyBox" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Grid>
                     <Button Style="{StaticResource Gold}" Content="Buy one crate" Click="OnBuyCrate"/>
                     <TextBlock Text="Upgrades" Foreground="#7FA18B" Margin="0,16,0,6"/>
                     <ListView x:Name="ShopList" MaxHeight="280" IsItemClickEnabled="True" ItemClick="OnBuyUpgrade"/>
@@ -150,7 +158,10 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
                 </Border>
                 <Border Grid.Column="1" Background="#1C262E" CornerRadius="8" Padding="20">
                     <StackPanel>
-                        <TextBlock x:Name="TicketName" FontSize="28" FontWeight="SemiBold" Foreground="#E8A838"/>
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <Image x:Name="TicketIcon" Width="72" Height="72"/>
+                            <TextBlock x:Name="TicketName" FontSize="28" FontWeight="SemiBold" Foreground="#E8A838" VerticalAlignment="Center"/>
+                        </StackPanel>
                         <TextBlock x:Name="TicketTag" Foreground="#7FA18B" Margin="0,0,0,12"/>
                         <TextBlock x:Name="TicketSteps" Foreground="#EDE6D6" FontSize="16" TextWrapping="Wrap"/>
                         <ProgressBar x:Name="TicketBar" Minimum="0" Maximum="1" Value="1" Height="10" Margin="0,16,0,8" Foreground="#E8A838" Background="#2E3A44"/>
@@ -163,11 +174,11 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
                     <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Style="{StaticResource Station}" Content="1  PREP" Click="OnStation" Tag="Prep"/>
-                <Button Grid.Column="1" Style="{StaticResource Station}" Content="2  RANGE" Click="OnStation" Tag="Range"/>
-                <Button Grid.Column="2" Style="{StaticResource Station}" Content="3  FRYER" Click="OnStation" Tag="Fryer"/>
-                <Button Grid.Column="3" Style="{StaticResource Station}" Content="4  STEAM" Click="OnStation" Tag="Steam"/>
-                <Button Grid.Column="4" Style="{StaticResource Station}" Content="5  WINDOW" Click="OnStation" Tag="Window"/>
+                <Button Grid.Column="0" Style="{StaticResource Station}" x:Name="StPrep" Content="1  PREP" Click="OnStation" Tag="Prep"/>
+                <Button Grid.Column="1" Style="{StaticResource Station}" x:Name="StRange" Content="2  RANGE" Click="OnStation" Tag="Range"/>
+                <Button Grid.Column="2" Style="{StaticResource Station}" x:Name="StFryer" Content="3  FRYER" Click="OnStation" Tag="Fryer"/>
+                <Button Grid.Column="3" Style="{StaticResource Station}" x:Name="StSteam" Content="4  STEAM" Click="OnStation" Tag="Steam"/>
+                <Button Grid.Column="4" Style="{StaticResource Station}" x:Name="StWindow" Content="5  WINDOW" Click="OnStation" Tag="Window"/>
             </Grid>
             <Grid Grid.Row="3" Padding="20,8" Background="#141A1F">
                 <ProgressBar x:Name="ServiceBar" Minimum="0" Maximum="12" Value="0" Height="12" VerticalAlignment="Top" Foreground="#7FA18B" Background="#2E3A44"/>
@@ -186,6 +197,25 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
                 <TextBlock Text="Shift report" FontSize="28" Foreground="#E8A838"/>
                 <TextBlock x:Name="ReportBody" TextWrapping="Wrap" Foreground="#EDE6D6" Margin="0,12,0,16" FontSize="15"/>
                 <Button Style="{StaticResource Gold}" Content="Back to the kitchen" Click="OnReportDone"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid x:Name="SettingsPanel" Grid.Row="1" Visibility="Collapsed">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="460" Spacing="6">
+                <TextBlock Text="Settings" FontSize="28" FontWeight="SemiBold" Foreground="#E8A838"/>
+                <TextBlock Text="Music volume" Foreground="#EDE6D6" Margin="0,12,0,0"/>
+                <Slider x:Name="MusicSlider" Minimum="0" Maximum="100" StepFrequency="5" ValueChanged="OnSliderChanged"/>
+                <TextBlock Text="Sound effects volume" Foreground="#EDE6D6"/>
+                <Slider x:Name="SfxSlider" Minimum="0" Maximum="100" StepFrequency="5" ValueChanged="OnSliderChanged"/>
+                <CheckBox x:Name="MuteBox" Content="Mute all audio" Foreground="#EDE6D6" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                <TextBlock Text="Difficulty (ticket clock speed)" Foreground="#EDE6D6" Margin="0,8,0,0"/>
+                <ComboBox x:Name="DifficultyBox" HorizontalAlignment="Stretch" SelectionChanged="OnDifficultyChanged">
+                    <ComboBoxItem Content="Easy  ·  slower clock"/>
+                    <ComboBoxItem Content="Normal"/>
+                    <ComboBoxItem Content="Hard  ·  faster clock"/>
+                </ComboBox>
+                <CheckBox x:Name="FullscreenBox" Content="Fullscreen" Foreground="#EDE6D6" Margin="0,8,0,0" Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                <Button Style="{StaticResource Gold}" Content="Save and back" Click="OnSettingsBack" Margin="0,16,0,0"/>
             </StackPanel>
         </Grid>
 

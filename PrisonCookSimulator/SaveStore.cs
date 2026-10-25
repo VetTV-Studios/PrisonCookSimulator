@@ -29,10 +29,30 @@ public sealed class ContractDto
     public List<TrusteeDto> Crew { get; set; } = new();
 }
 
+public enum Difficulty { Easy, Normal, Hard }
+
+public sealed class SettingsDto
+{
+    public double MusicVolume { get; set; } = 0.5;
+    public double SfxVolume { get; set; } = 0.8;
+    public bool Muted { get; set; }
+    public Difficulty Difficulty { get; set; } = Difficulty.Normal;
+    public bool Fullscreen { get; set; }
+
+    /// <summary>How fast the ticket clock drains relative to Normal.</summary>
+    public double ClockSpeed => Difficulty switch
+    {
+        Difficulty.Easy => 0.75,
+        Difficulty.Hard => 1.3,
+        _ => 1.0,
+    };
+}
+
 public sealed class SaveData
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
     public int BestRush { get; set; }
+    public SettingsDto Settings { get; set; } = new();
     public ContractDto? Contract { get; set; }
 }
 
