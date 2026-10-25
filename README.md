@@ -31,11 +31,27 @@ If packaging identity complains, set this in the `.csproj` for unpackaged debug:
 <WindowsPackageType>None</WindowsPackageType>
 ```
 
+## Controls
+
+Keys **1–5** hit Prep, Range, Fryer, Steam, Window. **P** or **Esc** pauses and resumes the line.
+
+Save file: `%LocalAppData%\VetTV\PrisonCookSimulator\save.json` (Rush best score and contract progress). Under MSIX, Windows redirects this path into the package's LocalCache folder.
+
+## itch.io build (unpackaged, self-contained)
+
+```powershell
+cd PrisonCookSimulator
+dotnet publish -c Release -p:Platform=x64   -p:Unpackaged=true -p:PublishProfile=win-x64
+dotnet publish -c Release -p:Platform=ARM64 -p:Unpackaged=true -p:PublishProfile=win-arm64
+```
+
+Output goes to `bin\publish\itch-win-x64\` and `bin\publish\itch-win-arm64\`. Zip each folder and upload it to itch.io (or `butler push`).
+
 ## Store packaging
 
 Identity in `Package.appxmanifest` is `Studio27.PrisonCookSimulator` / `CN=Studio27`. Replace with your Partner Center reservation before upload.
 
-Place generated logos in `PrisonCookSimulator/Assets/`:
+Logos live in `PrisonCookSimulator/Assets/` (AppIcon.ico is the exe/window icon):
 
 - StoreLogo.png (50×50)
 - Square44x44Logo.png, Square71x71Logo.png, Square150x150Logo.png, Square310x310Logo.png

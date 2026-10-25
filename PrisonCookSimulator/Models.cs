@@ -32,6 +32,11 @@ public sealed class Trustee
     public bool Present { get; set; } = true;
 }
 
+public sealed record ShopRow(string Id, string Label)
+{
+    public override string ToString() => Label;
+}
+
 public sealed class Upgrade
 {
     public required string Id { get; init; }
@@ -65,6 +70,7 @@ public sealed class KitchenState
     public int ShiftScore { get; set; }
     public int BestRush { get; set; }
     public int ContractStars { get; set; }
+    public int DaysPlayed { get; set; }
     public bool InspectionToday { get; set; }
     public bool Lockdown { get; set; }
     public bool WardenTasting { get; set; }

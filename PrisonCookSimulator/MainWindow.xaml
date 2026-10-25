@@ -32,21 +32,35 @@
                 <Setter Property="HorizontalAlignment" Value="Stretch"/>
             </Style>
         </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-        <Grid x:Name="MenuPanel">
+        <!-- Custom title bar: drag region (ExtendsContentIntoTitleBar + SetTitleBar in code-behind). -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Background="#0E1216" Padding="12,0,140,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                <Image Source="ms-appx:///Assets/Square44x44Logo.png" Width="16" Height="16"/>
+                <TextBlock Text="Prison Cook Simulator" Foreground="#9AA7B0" FontSize="12" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <Grid x:Name="MenuPanel" Grid.Row="1">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="520">
                 <TextBlock Text="IRONWOOD C.F." FontSize="13" LetterSpacing="6" Foreground="#7FA18B" HorizontalAlignment="Center"/>
                 <TextBlock Text="PRISON COOK" FontSize="42" FontWeight="Bold" Foreground="#EDE6D6" HorizontalAlignment="Center"/>
                 <TextBlock Text="SIMULATOR" FontSize="42" FontWeight="Bold" Foreground="#E8A838" HorizontalAlignment="Center" Margin="0,-8,0,8"/>
                 <TextBlock TextWrapping="Wrap" Foreground="#9AA7B0" FontSize="14" Margin="0,0,0,20" HorizontalAlignment="Center" TextAlignment="Center"
                            Text="You run the kitchen on a state allotment. Plan the menu, work every station, keep hygiene high enough that the inspector does not shut the line. Eight weeks. Do not starve the count."/>
+                <Button x:Name="ContinueBtn" Style="{StaticResource Gold}" Content="Continue contract" Click="OnContinue" Visibility="Collapsed"/>
                 <Button Style="{StaticResource Gold}" Content="Kitchen contract  ·  8 weeks" Click="OnContract"/>
                 <Button Style="{StaticResource Gold}" Content="Rush line  ·  arcade service" Click="OnRush"/>
                 <Button Style="{StaticResource Ghost}" Content="How the line works" Click="OnHelp"/>
+                <TextBlock x:Name="MenuBest" Foreground="#7FA18B" FontSize="13" HorizontalAlignment="Center" Margin="0,12,0,0"/>
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="HelpPanel" Visibility="Collapsed">
+        <Grid x:Name="HelpPanel" Grid.Row="1" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="560">
                 <TextBlock Text="The line" FontSize="28" FontWeight="SemiBold" Foreground="#E8A838"/>
                 <TextBlock TextWrapping="Wrap" Foreground="#EDE6D6" Margin="0,12,0,16" FontSize="14"
@@ -55,7 +69,7 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="HubPanel" Visibility="Collapsed">
+        <Grid x:Name="HubPanel" Grid.Row="1" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="340"/>
@@ -105,7 +119,7 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
             </Border>
         </Grid>
 
-        <Grid x:Name="LinePanel" Visibility="Collapsed">
+        <Grid x:Name="LinePanel" Grid.Row="1" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="72"/>
                 <RowDefinition Height="*"/>
@@ -118,6 +132,7 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
                     <TextBlock x:Name="LineStats" Foreground="#EDE6D6" FontSize="20" FontWeight="SemiBold"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="8">
+                    <Button x:Name="PauseBtn" Style="{StaticResource Ghost}" Content="Pause (P)" Click="OnPause" Width="120"/>
                     <Button Style="{StaticResource Ghost}" Content="Pit / scrub" Click="OnPit" Width="120"/>
                     <Button Style="{StaticResource Ghost}" Content="Abandon" Click="OnAbandon" Width="110"/>
                 </StackPanel>
@@ -148,19 +163,25 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
                     <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Style="{StaticResource Station}" Content="PREP" Click="OnStation" Tag="Prep"/>
-                <Button Grid.Column="1" Style="{StaticResource Station}" Content="RANGE" Click="OnStation" Tag="Range"/>
-                <Button Grid.Column="2" Style="{StaticResource Station}" Content="FRYER" Click="OnStation" Tag="Fryer"/>
-                <Button Grid.Column="3" Style="{StaticResource Station}" Content="STEAM" Click="OnStation" Tag="Steam"/>
-                <Button Grid.Column="4" Style="{StaticResource Station}" Content="WINDOW" Click="OnStation" Tag="Window"/>
+                <Button Grid.Column="0" Style="{StaticResource Station}" Content="1  PREP" Click="OnStation" Tag="Prep"/>
+                <Button Grid.Column="1" Style="{StaticResource Station}" Content="2  RANGE" Click="OnStation" Tag="Range"/>
+                <Button Grid.Column="2" Style="{StaticResource Station}" Content="3  FRYER" Click="OnStation" Tag="Fryer"/>
+                <Button Grid.Column="3" Style="{StaticResource Station}" Content="4  STEAM" Click="OnStation" Tag="Steam"/>
+                <Button Grid.Column="4" Style="{StaticResource Station}" Content="5  WINDOW" Click="OnStation" Tag="Window"/>
             </Grid>
             <Grid Grid.Row="3" Padding="20,8" Background="#141A1F">
                 <ProgressBar x:Name="ServiceBar" Minimum="0" Maximum="12" Value="0" Height="12" VerticalAlignment="Top" Foreground="#7FA18B" Background="#2E3A44"/>
                 <TextBlock x:Name="LineToast" Foreground="#EDE6D6" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
             </Grid>
+            <Border x:Name="PauseOverlay" Grid.Row="1" Grid.RowSpan="2" Background="#CC0E1216" Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="PAUSED" FontSize="36" FontWeight="Bold" Foreground="#E8A838" HorizontalAlignment="Center"/>
+                    <TextBlock Text="P or Esc to resume  ·  keys 1-5 hit Prep, Range, Fryer, Steam, Window" Foreground="#9AA7B0" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
         </Grid>
 
-        <Grid x:Name="ReportPanel" Visibility="Collapsed">
+        <Grid x:Name="ReportPanel" Grid.Row="1" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="520">
                 <TextBlock Text="Shift report" FontSize="28" Foreground="#E8A838"/>
                 <TextBlock x:Name="ReportBody" TextWrapping="Wrap" Foreground="#EDE6D6" Margin="0,12,0,16" FontSize="15"/>
@@ -168,7 +189,7 @@ Text="Contract — eight weeks of breakfast and supper at Ironwood. Buy stores, 
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="EndPanel" Visibility="Collapsed">
+        <Grid x:Name="EndPanel" Grid.Row="1" Visibility="Collapsed">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="520">
                 <TextBlock x:Name="EndTitle" FontSize="28" FontWeight="SemiBold" Foreground="#E8A838"/>
                 <TextBlock x:Name="EndBody" TextWrapping="Wrap" Foreground="#EDE6D6" Margin="0,12,0,16" FontSize="15"/>

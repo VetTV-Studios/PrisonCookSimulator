@@ -5,6 +5,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap rescap">
 
+  <!-- TODO(store): replace Identity Name/Publisher and PublisherDisplayName with the Partner Center reservation for VetTV Studios (Project > Publish > Associate App with the Store). -->
   <Identity
     Name="Studio27.PrisonCookSimulator"
     Publisher="CN=Studio27"

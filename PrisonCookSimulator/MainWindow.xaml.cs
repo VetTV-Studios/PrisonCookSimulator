@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
 
 namespace PrisonCookSimulator;
 
@@ -14,16 +16,64 @@ public sealed partial class MainWindow : Window
     private int _recipeIndexB = 1;
     private bool _lineLive;
     private double _hygieneAcc;
+    private bool _paused;
+    private SaveData _save;
 
     public MainWindow()
     {
         InitializeComponent();
         Title = "Prison Cook Simulator";
         ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+        try
+        {
+            AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        }
+        catch
+        {
+            // Icon is cosmetic.
+        }
         _timer.Tick += OnTick;
+        Root.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnRootKeyDown), true);
+        _save = SaveStore.Load();
+        _s.BestRush = _save.BestRush;
+        RefreshMenu();
         BuyBox.ItemsSource = KitchenBook.Ingredients.Select(i => i.Name).ToList();
         if (BuyBox.Items.Count > 0) BuyBox.SelectedIndex = 0;
-        ShopList.ItemsSource = KitchenBook.Shop.Select(u => $"{u.Name}  ·  ${u.Cost}").ToList();
+        ShopList.ItemsSource = KitchenBook.Shop.Select(u => new ShopRow(u.Id, $"{u.Name}  ·  ${u.Cost}")).ToList();
+    }
+
+    private void RefreshMenu()
+    {
+        ContinueBtn.Visibility = _save.Contract is null ? Visibility.Collapsed : Visibility.Visible;
+        if (_save.Contract is not null)
+            ContinueBtn.Content = $"Continue contract  ·  week {_save.Contract.Week}, day {_save.Contract.Day}";
+        MenuBest.Text = _save.BestRush > 0 ? $"Rush best: {_save.BestRush}" : "";
+    }
+
+    private void PersistContract()
+    {
+        if (_s.Mode != RunMode.Contract) return;
+        _save.Contract = _s.Over ? null : SaveStore.Capture(_s);
+        SaveStore.Save(_save);
+    }
+
+    private void PersistBest()
+    {
+        if (_s.BestRush <= _save.BestRush) return;
+        _save.BestRush = _s.BestRush;
+        SaveStore.Save(_save);
+    }
+
+    private void OnContinue(object sender, RoutedEventArgs e)
+    {
+        if (_save.Contract is null) return;
+        SaveStore.Restore(_s, _save.Contract);
+        _recipeIndexA = Math.Max(0, Array.IndexOf(KitchenBook.Recipes, _s.MenuA));
+        _recipeIndexB = Math.Max(0, Array.IndexOf(KitchenBook.Recipes, _s.MenuB));
+        RollDayFlags();
+        PaintHub();
+        Show(HubPanel);
     }
 
     private void Show(Grid panel)
@@ -41,6 +91,8 @@ public sealed partial class MainWindow : Window
     {
         _timer.Stop();
         _lineLive = false;
+        SetPaused(false);
+        RefreshMenu();
         Show(MenuPanel);
     }
 
@@ -49,6 +101,7 @@ public sealed partial class MainWindow : Window
     private void OnContract(object sender, RoutedEventArgs e)
     {
         ResetCampaign(RunMode.Contract);
+        PersistContract();
         PaintHub();
         Show(HubPanel);
     }
@@ -73,6 +126,7 @@ public sealed partial class MainWindow : Window
         _s.Ruined = 0;
         _s.ShiftScore = 0;
         _s.ContractStars = 0;
+        _s.DaysPlayed = 0;
         _s.Over = false;
         _s.Ending = "";
         _s.Owned.Clear();
@@ -126,7 +180,7 @@ public sealed partial class MainWindow : Window
             .Select(i => $"{i.Name,-22}  {_s.Pantry.GetValueOrDefault(i.Id),2}   ${KitchenBook.BuyCost(_s, i, 1)}/ea")
             .ToList();
         ShopList.ItemsSource = KitchenBook.Shop.Select(u =>
-            _s.Has(u.Id) ? $"{u.Name}  ·  owned" : $"{u.Name}  ·  ${u.Cost}").ToList();
+            new ShopRow(u.Id, _s.Has(u.Id) ? $"{u.Name}  ·  owned" : $"{u.Name}  ·  ${u.Cost}")).ToList();
     }
 
     private void OnCycleMenuA(object sender, RoutedEventArgs e)
@@ -166,8 +220,8 @@ public sealed partial class MainWindow : Window
 
     private void OnBuyUpgrade(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not string label) return;
-        var up = KitchenBook.Shop.FirstOrDefault(u => label.StartsWith(u.Name, StringComparison.Ordinal));
+        if (e.ClickedItem is not ShopRow row) return;
+        var up = KitchenBook.Shop.FirstOrDefault(u => u.Id == row.Id);
         if (up is null || _s.Has(up.Id)) return;
         if (_s.Budget < up.Cost)
         {
@@ -219,6 +273,7 @@ public sealed partial class MainWindow : Window
         _queue.Clear();
         _live = null;
         _hygieneAcc = 0;
+        SetPaused(false);
         ServiceBar.Maximum = _s.MealsNeeded;
         ServiceBar.Value = 0;
         SeedTickets(3);
@@ -228,6 +283,8 @@ public sealed partial class MainWindow : Window
         LineToast.Text = _s.InspectionToday ? "Hairnet check. Hygiene is on the clock." : "First ticket up.";
         PaintLine();
         Show(LinePanel);
+        // Give the line keyboard focus so 1-5 / P / Esc reach OnRootKeyDown.
+        PauseBtn.Focus(FocusState.Programmatic);
     }
 
     private Recipe PickRecipe()
@@ -287,7 +344,7 @@ public sealed partial class MainWindow : Window
 
     private void OnTick(object sender, object e)
     {
-        if (!_lineLive || _live is null) return;
+        if (!_lineLive || _paused || _live is null) return;
         _live.TimeLeft -= 0.05;
         _hygieneAcc += _s.Has("drains") ? 0.012 : 0.02;
         if (_hygieneAcc >= 1)
@@ -305,9 +362,52 @@ public sealed partial class MainWindow : Window
 
     private void OnStation(object sender, RoutedEventArgs e)
     {
-        if (!_lineLive || _live is null) return;
         if (sender is not Button btn || btn.Tag is not string tag) return;
         if (!Enum.TryParse<Station>(tag, out var st)) return;
+        HitStation(st);
+    }
+
+    private void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (LinePanel.Visibility != Visibility.Visible || !_lineLive) return;
+        Station? st = e.Key switch
+        {
+            VirtualKey.Number1 or VirtualKey.NumberPad1 => Station.Prep,
+            VirtualKey.Number2 or VirtualKey.NumberPad2 => Station.Range,
+            VirtualKey.Number3 or VirtualKey.NumberPad3 => Station.Fryer,
+            VirtualKey.Number4 or VirtualKey.NumberPad4 => Station.Steam,
+            VirtualKey.Number5 or VirtualKey.NumberPad5 => Station.Window,
+            _ => null,
+        };
+        if (st is Station hit)
+        {
+            HitStation(hit);
+            e.Handled = true;
+        }
+        else if (e.Key is VirtualKey.P or VirtualKey.Escape)
+        {
+            SetPaused(!_paused);
+            e.Handled = true;
+        }
+    }
+
+    private void OnPause(object sender, RoutedEventArgs e)
+    {
+        if (_lineLive) SetPaused(!_paused);
+    }
+
+    private void SetPaused(bool paused)
+    {
+        _paused = paused && _lineLive;
+        if (_paused) _timer.Stop();
+        else if (_lineLive) _timer.Start();
+        PauseBtn.Content = _paused ? "Resume (P)" : "Pause (P)";
+        PauseOverlay.Visibility = _paused ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void HitStation(Station st)
+    {
+        if (!_lineLive || _paused || _live is null) return;
         var need = _live.Recipe.Steps[Math.Clamp(_live.Step, 0, _live.Recipe.Steps.Length - 1)];
         if (st != need)
         {
@@ -369,7 +469,7 @@ public sealed partial class MainWindow : Window
 
     private void OnPit(object sender, RoutedEventArgs e)
     {
-        if (!_lineLive) return;
+        if (!_lineLive || _paused) return;
         _s.Hygiene = Math.Min(100, _s.Hygiene + 8);
         if (_live is not null) _live.TimeLeft = Math.Max(0.4, _live.TimeLeft - 0.9);
         LineToast.Text = "Pit run. Hygiene up, ticket clock down.";
@@ -378,6 +478,7 @@ public sealed partial class MainWindow : Window
 
     private void OnAbandon(object sender, RoutedEventArgs e)
     {
+        SetPaused(false);
         if (_s.Mode == RunMode.Rush)
         {
             _timer.Stop();
@@ -421,6 +522,7 @@ public sealed partial class MainWindow : Window
     {
         _timer.Stop();
         _lineLive = false;
+        SetPaused(false);
         if (_s.Mode == RunMode.Rush)
         {
             ShowRushEnd(bailed: collapse && _s.Plated == 0);
@@ -449,6 +551,7 @@ public sealed partial class MainWindow : Window
         _s.Budget += pay;
         if (_s.Day == 1) _s.Budget += 180;
         _s.ContractStars += avg >= 85 ? 3 : avg >= 70 ? 2 : 1;
+        _s.DaysPlayed++;
 
         ReportBody.Text =
             $"{KitchenBook.DayName(_s.Day)}\n\n" +
@@ -463,6 +566,7 @@ public sealed partial class MainWindow : Window
     private void ShowRushEnd(bool bailed)
     {
         if (_s.ShiftScore > _s.BestRush) _s.BestRush = _s.ShiftScore;
+        PersistBest();
         EndTitle.Text = bailed ? "Line abandoned" : "Rush over";
         EndBody.Text = $"Plated {_s.Plated}. Ruined {_s.Ruined}. Score {_s.ShiftScore}. Best {_s.BestRush}.";
         Show(EndPanel);
@@ -476,6 +580,7 @@ public sealed partial class MainWindow : Window
             return;
         }
         AdvanceDay();
+        PersistContract();
         if (_s.Over)
         {
             Show(EndPanel);
@@ -507,7 +612,9 @@ public sealed partial class MainWindow : Window
     private void FinishContract()
     {
         _s.Over = true;
-        var stars = Math.Clamp(_s.ContractStars / 8, 1, 3);
+        // Average stars earned per shift actually played (each shift earns 1-3).
+        var perDay = _s.ContractStars / (double)Math.Max(1, _s.DaysPlayed);
+        var stars = perDay >= 2.5 ? 3 : perDay >= 1.75 ? 2 : 1;
         EndTitle.Text = stars >= 3 ? "Contract renewed" : stars == 2 ? "Contract closed" : "They will not call back";
         EndBody.Text =
             $"Eight weeks at Ironwood.\nMorale {_s.Morale}. Warden {_s.Favor}. Hygiene {_s.Hygiene}. Cash ${_s.Budget}.\n" +
@@ -523,6 +630,7 @@ public sealed partial class MainWindow : Window
     {
         _s.Over = true;
         _s.Ending = why;
+        PersistContract();
         EndTitle.Text = "Contract pulled";
         EndBody.Text = why;
         Show(EndPanel);
