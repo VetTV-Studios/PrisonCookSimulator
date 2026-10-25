@@ -1,0 +1,48 @@
+name: windows-build
+
+on:
+  push:
+    branches: [launch-fixes]
+  workflow_dispatch:
+
+jobs:
+  compile-check:
+    name: Packaged x64 Debug build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: microsoft/setup-msbuild@v2
+      - name: Restore
+        run: msbuild PrisonCookSimulator/PrisonCookSimulator.csproj /t:Restore /p:Configuration=Debug /p:Platform=x64 /p:RuntimeIdentifier=win-x64
+      - name: Build (MSIX tooling, no package)
+        run: msbuild PrisonCookSimulator/PrisonCookSimulator.csproj /p:Configuration=Debug /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:AppxPackageSigningEnabled=false /p:GenerateAppxPackageOnBuild=false /m
+
+  itch-publish:
+    name: Unpackaged self-contained (${{ matrix.platform }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x64
+            rid: win-x64
+          - platform: ARM64
+            rid: win-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish
+        run: >
+          dotnet publish PrisonCookSimulator/PrisonCookSimulator.csproj -c Release
+          -p:Platform=${{ matrix.platform }} -p:RuntimeIdentifier=${{ matrix.rid }}
+          -p:SelfContained=true -p:Unpackaged=true -p:PublishProfile=${{ matrix.rid }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrisonCookSimulator-itch-${{ matrix.rid }}
+          path: PrisonCookSimulator/bin/publish/itch-${{ matrix.rid }}/
+          if-no-files-found: error
